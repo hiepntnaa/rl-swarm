@@ -83,6 +83,7 @@ EOF
 while true; do
     echo -en $GREEN_TEXT
     echo ">> Would you like to connect to the Testnet? [Y/n] Y"
+    sleep 5
     yn="Y"
     echo -en $RESET_TEXT
     yn=${yn:-Y}  # Default to "Y" if the user presses Enter
@@ -96,6 +97,7 @@ done
 while true; do
     echo -en $GREEN_TEXT
     echo ">> Which swarm would you like to join (Math (A) or Math Hard (B))? [A/b] A"
+    sleep 5
     ab="A"
     echo -en $RESET_TEXT
     ab=${ab:-A}  # Default to "A" if the user presses Enter
@@ -113,6 +115,7 @@ fi
 while true; do
     echo -en $GREEN_TEXT
     echo ">> How many parameters (in billions)? [0.5, 1.5, 7, 32, 72] 0.5"
+    sleep 5
     pc="0.5"
     echo -en $RESET_TEXT
     pc=${pc:-0.5}  # Default to "0.5" if the user presses Enter
@@ -238,6 +241,7 @@ if [ -n "${HF_TOKEN}" ]; then # Check if HF_TOKEN is already set and use if so. 
 else
     echo -en $GREEN_TEXT
     echo ">> Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] N"
+    sleep 5
     yn="N"
     echo -en $RESET_TEXT
 
