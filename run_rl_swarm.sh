@@ -94,7 +94,8 @@ done
 
 while true; do
     echo -en $GREEN_TEXT
-    read -p ">> Which swarm would you like to join (Math (A) or Math Hard (B))? [A/b] " ab
+    echo ">> Which swarm would you like to join (Math (A) or Math Hard (B))? [A/b] A"
+    ab="A"
     echo -en $RESET_TEXT
     ab=${ab:-A}  # Default to "A" if the user presses Enter
     case $ab in
@@ -110,7 +111,8 @@ else
 fi
 while true; do
     echo -en $GREEN_TEXT
-    read -p ">> How many parameters (in billions)? [0.5, 1.5, 7, 32, 72] " pc
+    echo ">> How many parameters (in billions)? [0.5, 1.5, 7, 32, 72] 0.5"
+    pc="0.5"
     echo -en $RESET_TEXT
     pc=${pc:-0.5}  # Default to "0.5" if the user presses Enter
     case $pc in
@@ -234,8 +236,11 @@ if [ -n "${HF_TOKEN}" ]; then # Check if HF_TOKEN is already set and use if so. 
     HUGGINGFACE_ACCESS_TOKEN=${HF_TOKEN}
 else
     echo -en $GREEN_TEXT
-    read -p ">> Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] " yn
+    echo ">> Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] N"
+    yn="N"
     echo -en $RESET_TEXT
+
+
     yn=${yn:-N} # Default to "N" if the user presses Enter
     case $yn in
         [Yy]*) read -p "Enter your Hugging Face access token: " HUGGINGFACE_ACCESS_TOKEN ;;
