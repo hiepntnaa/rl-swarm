@@ -82,7 +82,8 @@ EOF
 
 while true; do
     echo -en $GREEN_TEXT
-    read -p ">> Would you like to connect to the Testnet? [Y/n] " yn
+    echo ">> Would you like to connect to the Testnet? [Y/n] Y"
+    yn="Y"
     echo -en $RESET_TEXT
     yn=${yn:-Y}  # Default to "Y" if the user presses Enter
     case $yn in
