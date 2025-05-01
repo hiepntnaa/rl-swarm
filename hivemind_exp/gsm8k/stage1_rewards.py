@@ -76,8 +76,7 @@ def hivemind_cumulative_reward(
     """
     total_reward = [20.0] * len(completions)  # Always return a fixed reward
 
-    # Always set the node's outputs and rewards (no condition)
-    node.outputs = {"question": "sample question", "answer": "sample answer", "agent_answers": {}}
+    # Always set the node's rewards (no condition)
     node.rewards = total_reward
 
     return total_reward
