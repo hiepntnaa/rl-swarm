@@ -65,25 +65,25 @@ def count_xml(text) -> float:
         return 0.0
     count = 0.0
     if text.count("<compare>\n") == 1:
-        count += 125
+        count += 4
     if text.count("\n</compare>\n") == 1:
-        count += 125
+        count += 4
     if text.count("<explain>\n") == 1:
-        count += 125
+        count += 4
     if text.count("\n</explain>\n") == 1:
-        count += 125
+        count += 4
     if text.count("\n<identify>\n") == 1:
-        count += 125
+        count += 4
         count -= len(text.split("\n</identify>\n")[-1]) * 0.001
     if text.count("\n</identify>") == 1:
-        count += 125
+        count += 4
         count -= (len(text.split("\n</identify>")[-1]) - 1) * 0.001
     return count
 
 
 # Reward functions
 def proper_id_reward_func(
-    prompts, completions, answer, weighting=100.0, logging=True, **kwargs
+    prompts, completions, answer, weighting=10.0, logging=True, **kwargs
 ) -> list[float]:
     # Validate inputs
     if prompts is None or not prompts or not isinstance(prompts, list):
@@ -117,7 +117,7 @@ def proper_id_reward_func(
 
 
 def correctness_reward_func(
-    prompts, completions, answer, weighting=100.0, logging=True, **kwargs
+    prompts, completions, answer, weighting=10.0, logging=True, **kwargs
 ) -> list[float]:
     # Validate inputs
     if prompts is None or not prompts or not isinstance(prompts, list):
@@ -138,15 +138,15 @@ def correctness_reward_func(
         cur_reward = 0
         if r in agent_answers:
             if stage1_rewards.extract_xml_answer(agent_answers[r]) == answer[0]:
-                cur_reward += 100.0
+                cur_reward += 5.0
             if stage1_rewards.extract_xml_answer(agent_answers[r]).isdigit():
-                cur_reward += 100.0
+                cur_reward += 2.5
             pattern = r"^<think>\n.*?\n</think>\n<answer>\n.*?\n</answer>\n$"
             if re.match(pattern, agent_answers[r]):
-                cur_reward += 100.0
+                cur_reward += 2.5
             pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
             if re.match(pattern, agent_answers[r]):
-                cur_reward += 100.0
+                cur_reward += 2.5
             cur_reward += stage1_rewards.count_xml(agent_answers[r])
         elif r in [
             "None",
@@ -167,7 +167,7 @@ def correctness_reward_func(
                 True if r == a else False for r, a in zip(agent_as, answer)
             ]
             if all(check_submissions):
-                cur_reward += 100.0
+                cur_reward += 50
         chosen_rewards += [cur_reward]
     if (random.random() < 0.01) and logging:  # 1% chance to write samples into a file
         if extracted_responses[0] in agent_answers:
@@ -188,7 +188,7 @@ def correctness_reward_func(
 
 
 def strict_format_reward_func(
-    completions, weighting=100.0, logging=True, **kwargs
+    completions, weighting=2.5, logging=True, **kwargs
 ) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     # Validate inputs
@@ -221,7 +221,7 @@ def strict_format_reward_func(
 
 
 def soft_format_reward_func(
-    completions, weighting=100.0, logging=True, **kwargs
+    completions, weighting=2.5, logging=True, **kwargs
 ) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     # Validate inputs
@@ -256,7 +256,7 @@ def soft_format_reward_func(
 
 
 def xmlcount_reward_func(
-    completions, weighting=100.0, logging=True, **kwargs
+    completions, weighting=5.0, logging=True, **kwargs
 ) -> list[float]:
     # Validate inputs
     if completions is None or not completions or not isinstance(completions, list):
@@ -328,53 +328,67 @@ def hivemind_cumulative_reward(
     **kwargs,
 ) -> list[float]:
     """
-    Dummy reward function that accumulates all rewards into one + saves JSON to node.outputs
+    Reward function tổng hợp + luôn xuất bản node.outputs & node.rewards ngay lập tức.
+    Chọn theo output_signal_selector: 'max', 'mean', hoặc mặc định (publish tất cả).
     """
-    # Validate inputs
-    if node is None:
-        return [0.0]
-    if prompts is None or not prompts or not isinstance(prompts, list):
-        return [0.0]
-    if completions is None or not completions or not isinstance(completions, list):
-        return [0.0]
+    # 1) Tính các sub-reward
+    proper_id_reward   = proper_id_reward_func(prompts, completions, answer, logging=logging)
+    correctness_reward = correctness_reward_func(prompts, completions, answer, logging=logging)
+    strict_fmt         = strict_format_reward_func(completions, logging=logging)
+    soft_fmt           = soft_format_reward_func(completions, logging=logging)
+    xmlcount           = xmlcount_reward_func(completions, logging=logging)
 
-    # Calculate individual rewards
-    proper_id_reward = proper_id_reward_func(
-        prompts, completions, answer, logging=logging
-    )
-    correctness_reward = correctness_reward_func(
-        prompts, completions, answer, logging=logging
-    )
-    strict_format_reward = strict_format_reward_func(completions, logging=logging)
-    soft_format_reward = soft_format_reward_func(completions, logging=logging)
-    xmlcount_reward = xmlcount_reward_func(completions, logging=logging)
+    # 2) Tổng hợp thành total_reward
     total_reward = [
-        sum(tup)
-        for tup in zip(
+        sum(vals) for vals in zip(
             proper_id_reward,
             correctness_reward,
-            strict_format_reward,
-            soft_format_reward,
-            xmlcount_reward,
+            strict_fmt,
+            soft_fmt,
+            xmlcount,
         )
     ]
 
-    question = extract_original_question(prompts[0][-1]["content"])
+    # 3) Chuẩn bị dữ liệu chung
+    responses   = [c[0]["content"] for c in completions]
+    question    = extract_original_question(prompts[0][-1]["content"])
+    prompt_text = prompts[0][-1]["content"]
+
+    # 4) Xác định output_data theo selector
     if output_signal_selector == "max":
-        # Generate output line
-        maximal_reward_idx, responses = (
-            np.argmax(total_reward),
-            [completion[0]["content"] for completion in completions],
-        )
+        idx = int(np.argmax(total_reward))
+        chosen = responses[idx]
         output_data = {
-            "question": question,
-            "answer": answer[0],
-            "stage2_prompt": prompts[0][-1]["content"],
-            "agent_opinion": {node.key: responses[maximal_reward_idx]},
+            "question":      question,
+            "answer":        answer[0],
+            "stage2_prompt": prompt_text,
+            "agent_opinion": {node.key: chosen},
         }
 
-    if output_signal_selector != None:
-        node.outputs = output_data
-        node.rewards = total_reward
+    elif output_signal_selector == "mean":
+        mean_val = sum(total_reward) / len(total_reward)
+        idx = min(range(len(total_reward)),
+                  key=lambda i: abs(total_reward[i] - mean_val))
+        chosen = responses[idx]
+        output_data = {
+            "question":      question,
+            "answer":        answer[0],
+            "stage2_prompt": prompt_text,
+            "agent_opinion": {node.key: chosen},
+        }
 
+    else:
+        # default: publish tất cả responses
+        output_data = {
+            "question":      question,
+            "answer":        answer[0],
+            "stage2_prompt": prompt_text,
+            "agent_opinion": {node.key: responses},
+        }
+
+    # 5) Luôn lưu vào node và publish
+    node.outputs = output_data
+    node.rewards = total_reward
+
+    # 6) Trả về zeros (reward thực sự dùng node.rewards)
     return [0.0 for _ in total_reward]
