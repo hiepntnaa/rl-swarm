@@ -130,6 +130,7 @@ if [ "$CONNECT_TO_TESTNET" = true ]; then
     echo "Please login to create an Ethereum Server Wallet"
     cd modal-login
     # Check if the yarn command exists; if not, install Yarn.
+    source ~/.bashrc
 
     # Node.js + NVM setup
     if ! command -v node > /dev/null 2>&1; then
@@ -153,9 +154,10 @@ if [ "$CONNECT_TO_TESTNET" = true ]; then
             echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
             sudo apt update && sudo apt install -y yarn
         else
-            echo "Yarn not found. Installing Yarn globally with npm (no profile edits)…"
-            # This lands in $NVM_DIR/versions/node/<ver>/bin which is already on PATH
-            npm install -g --silent yarn
+            echo "Yarn is not installed. Installing Yarn..."
+            curl -o- -L https://yarnpkg.com/install.sh | sh
+            echo 'export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"' >> ~/.bashrc
+            source ~/.bashrc
         fi
     fi
     yarn install
