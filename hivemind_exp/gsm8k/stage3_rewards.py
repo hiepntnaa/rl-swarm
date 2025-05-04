@@ -105,26 +105,26 @@ def count_xml(text) -> float:
 
     count = 0.0
     if text.count("<summarize_feedback>\n") == 1:
-        count += 4
+        count += 40
     if text.count("\n</summarize_feedback>\n") == 1:
-        count += 4
+        count += 40
     if text.count("<majority>\n") == 1:
-        count += 4
+        count += 40
     if text.count("\n</majority>\n") == 1:
-        count += 4
+        count += 40
     if text.count("<question>\n") == 1:
-        count += 4
+        count += 40
     if text.count("\n</question>\n") == 1:
-        count += 4
+        count += 40
     if text.count("<think>\n") == 1:
-        count += 4
+        count += 40
     if text.count("\n</think>\n") == 1:
-        count += 4
+        count += 40
     if text.count("\n<answer>\n") == 1:
-        count += 4
+        count += 40
         count -= len(text.split("\n</answer>\n")[-1]) * 0.001
     if text.count("\n</answer>") == 1:
-        count += 4
+        count += 40
         count -= (len(text.split("\n</answer>")[-1]) - 1) * 0.001
     return count
 
@@ -156,7 +156,7 @@ def swarm_majority(choices):
 
 # Reward functions
 def consensus_reward_func(
-    prompts, completions, weighting=10.0, logging=False, **kwargs
+    prompts, completions, weighting=40.0, logging=False, **kwargs
 ) -> list[float]:
     # Validate inputs
     if prompts is None or not prompts or not isinstance(prompts, list):
@@ -193,7 +193,7 @@ def consensus_reward_func(
 
 
 def question_recreation_reward_func(
-    prompts, completions, weighting=5.0, logging=False, **kwargs
+    prompts, completions, weighting=40.0, logging=False, **kwargs
 ) -> list[float]:
     # Validate inputs
     if prompts is None or not prompts or not isinstance(prompts, list):
@@ -227,7 +227,7 @@ def question_recreation_reward_func(
 
 
 def concensus_correctness_reward_func(
-    prompts, completions, answer, weighting=10.0, logging=False, **kwargs
+    prompts, completions, answer, weighting=40.0, logging=False, **kwargs
 ) -> list[float]:
     # Validate inputs
     if prompts is None or not prompts or not isinstance(prompts, list):
@@ -249,7 +249,7 @@ def concensus_correctness_reward_func(
         return [0.0] * len(completions)
 
     for r in extracted_responses:
-        cur_reward = 5
+        cur_reward = 40.0
         if r in agent_answers:
             # Compare only when there is a correct answer
             if (
@@ -257,15 +257,15 @@ def concensus_correctness_reward_func(
                 and stage1_rewards.extract_xml_answer(agent_answers[r])
                 == correct_answer
             ):
-                cur_reward += 5.0
+                cur_reward += 40.0
             if stage1_rewards.extract_xml_answer(agent_answers[r]).isdigit():
-                cur_reward += 2.5
+                cur_reward += 40.0
             pattern = r"^<think>\n.*?\n</think>\n<answer>\n.*?\n</answer>\n$"
             if re.match(pattern, agent_answers[r]):
-                cur_reward += 2.5
+                cur_reward += 40.0
             pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
             if re.match(pattern, agent_answers[r]):
-                cur_reward += 2.5
+                cur_reward += 40.0
             cur_reward += stage1_rewards.count_xml(agent_answers[r])
         elif r in [
             "None",
@@ -309,7 +309,7 @@ def concensus_correctness_reward_func(
 
 
 def final_correctness_reward_func(
-    prompts, completions, answer, weighting=10.0, logging=False, **kwargs
+    prompts, completions, answer, weighting=40.0, logging=False, **kwargs
 ) -> list[float]:
     # Validate inputs
     if prompts is None or not prompts or not isinstance(prompts, list):
@@ -349,7 +349,7 @@ def final_correctness_reward_func(
 
 
 def strict_format_reward_func(
-    completions, weighting=2.5, logging=False, **kwargs
+    completions, weighting=40.0, logging=False, **kwargs
 ) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     # Validate inputs
@@ -382,7 +382,7 @@ def strict_format_reward_func(
 
 
 def soft_format_reward_func(
-    completions, weighting=2.5, logging=False, **kwargs
+    completions, weighting=40.0, logging=False, **kwargs
 ) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     # Validate inputs
@@ -415,7 +415,7 @@ def soft_format_reward_func(
 
 
 def xmlcount_reward_func(
-    completions, weighting=5.0, logging=False, **kwargs
+    completions, weighting=40.0, logging=False, **kwargs
 ) -> list[float]:
     # Validate inputs
     if completions is None or not completions or not isinstance(completions, list):
