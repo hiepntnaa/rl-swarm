@@ -167,12 +167,6 @@ if [ "$CONNECT_TO_TESTNET" = true ]; then
     echo "Started server process: $SERVER_PID"
     sleep 2
 
-    # Try to open the URL in the default browser
-    if open http://localhost:3000 2> /dev/null; then
-        echo_green ">> Successfully opened http://localhost:3000 in your default browser."
-    else
-        echo ">> Failed to open http://localhost:3000. Please open it manually."
-    fi
 
     cd ..
 
