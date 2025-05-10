@@ -311,7 +311,6 @@ try_ngrok() {
     if install_ngrok; then
         TUNNEL_TYPE="ngrok"
         
-        # Kiểm tra nếu ngrok đã được xác thực trước
         if [ -z "$NGROK_TOKEN" ]; then
             while true; do
                 echo -e "\n${YELLOW}${BOLD}To get your authtoken:${NC}"
@@ -326,7 +325,7 @@ try_ngrok() {
                     echo -e "${RED}${BOLD}[✗] No token provided. Please enter a valid token.${NC}"
                     continue
                 fi
-                
+
                 pkill -f ngrok || true
                 sleep 2
 
@@ -336,15 +335,18 @@ try_ngrok() {
                     break
                 else
                     echo -e "${RED}[✗] Authentication failed. Please check your token and try again.${NC}"
+                    sleep 3
                 fi
             done
         fi
-        
-        # Tiến hành khởi động ngrok với các phương pháp
+
         echo -e "\n${CYAN}${BOLD}[✓] Starting ngrok...${NC}"
         ngrok http "$PORT" --log=stdout --log-format=json > ngrok_output.log 2>&1 &
         TUNNEL_PID=$!
         sleep 5
+
+        # Kiểm tra log ngrok để xác định lỗi
+        tail -n 20 ngrok_output.log
 
         NGROK_URL=$(get_ngrok_url_method1)
         if [ -n "$NGROK_URL" ]; then
@@ -354,8 +356,6 @@ try_ngrok() {
             echo -e "${RED}${BOLD}[✗] Failed to get ngrok URL (method 1).${NC}"
             kill $TUNNEL_PID 2>/dev/null || true
         fi
-        
-        # Tiếp tục với các phương pháp khác nếu cần...
     fi
     return 1
 }
