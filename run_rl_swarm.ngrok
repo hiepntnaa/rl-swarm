@@ -35,7 +35,7 @@ SMALL_SWARM_CONTRACT="0x69C6e1D608ec64885E7b185d39b04B491a71768C"
 BIG_SWARM_CONTRACT="0x6947c6E196a48B77eFa9331EC1E3e45f3Ee5Fd58"
 
 # Will ignore any visible GPUs if set.
-CPU_ONLY=${CPU_ONLY:-""}
+CPU_ONLY=true
 
 
 check_cuda_installation() {
@@ -69,8 +69,9 @@ check_cuda_installation() {
         echo -e "${YELLOW}${BOLD}[!] CUDA environment is not completely set up${NC}"
         
         # Ask if user wants to install CUDA
-        read -p "Would you like to install CUDA and NVCC? [Y/n] " install_choice
-        install_choice=${install_choice:-Y}
+        echo -e "${CYAN}${BOLD}Would you like to install CUDA and NVCC? [Y/n] n${NC}"
+        sleep 2
+        install_choice="n"
         
         if [[ $install_choice =~ ^[Yy]$ ]]; then
             echo -e "${CYAN}${BOLD}[✓] Downloading and running CUDA installation script from GitHub...${NC}"
@@ -131,34 +132,16 @@ check_cuda_installation() {
 
 check_cuda_installation
 
-while true; do
-    # Prompt the user
-    echo -e "\033[36m\033[1mPlease select a swarm to join:\n[A] Math\n[B] Math Hard\033[0m"
-    read -p "> " ab
-    ab=${ab:-A}  # Default to "A" if Enter is pressed
+# Tự động chọn A cho swarm và 0.5 cho số parameters
+USE_BIG_SWARM=false  # Tương đương với chọn "A" cho Math
+SWARM_CONTRACT="$SMALL_SWARM_CONTRACT"  # Đặt contract tương ứng
 
-    case $ab in
-        [Aa]*)  USE_BIG_SWARM=false; break ;;
-        [Bb]*)  USE_BIG_SWARM=true; break ;;
-        *)      echo ">>> Please answer A or B." ;;
-    esac
-done
+PARAM_B=0.5  # Tự động chọn 0.5 cho số parameters
 
-if [ "$USE_BIG_SWARM" = true ]; then
-    SWARM_CONTRACT="$BIG_SWARM_CONTRACT"
-else
-    SWARM_CONTRACT="$SMALL_SWARM_CONTRACT"
-fi
-while true; do
-    echo -e "\n\033[36m\033[1mHow many parameters (in billions)? [0.5, 1.5, 7, 32, 72]\033[0m"
-    read -p "> " pc
-    pc=${pc:-0.5}  # Default to "0.5" if the user presses Enter
+# Xác nhận lựa chọn
+echo -e "\033[36m\033[1mSelected swarm: Math (A)\033[0m"
+echo -e "\033[36m\033[1mSelected parameter size: $PARAM_B billions\033[0m"
 
-    case $pc in
-        0.5 | 1.5 | 7 | 32 | 72) PARAM_B=$pc; break ;;
-        *) echo ">>> Please answer in [0.5, 1.5, 7, 32, 72]." ;;
-    esac
-done
 
 cleanup() {
     echo -e "${YELLOW}${BOLD}[✓] Shutting down processes...${NC}"
@@ -656,14 +639,14 @@ fi
 if [ -n "${HF_TOKEN}" ]; then
     HUGGINGFACE_ACCESS_TOKEN=${HF_TOKEN}
 else
-    read -p "Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] " yn
-    yn=${yn:-N}
+    yn="n"  # Tự động chọn "n" (không đẩy lên Hugging Face)
     case $yn in
         [Yy]* ) read -p "Enter your Hugging Face access token: " HUGGINGFACE_ACCESS_TOKEN;;
         [Nn]* ) HUGGINGFACE_ACCESS_TOKEN="None";;
         * ) echo -e "${YELLOW}>>> No answer was given, so NO models will be pushed to the Hugging Face Hub.${NC}" && HUGGINGFACE_ACCESS_TOKEN="None";;
     esac
 fi
+
 
 echo -e "\n${GREEN}${BOLD}[✓] Good luck in the swarm! Your training session is about to begin.\n${NC}"
 [ "$(uname)" = "Darwin" ] && sed -i '' -E 's/(startup_timeout: *float *= *)[0-9.]+/\1120/' $(python3 -c "import hivemind.p2p.p2p_daemon as m; print(m.__file__)") || sed -i -E 's/(startup_timeout: *float *= *)[0-9.]+/\1120/' $(python3 -c "import hivemind.p2p.p2p_daemon as m; print(m.__file__)")
