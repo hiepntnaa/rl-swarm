@@ -35,7 +35,7 @@ SMALL_SWARM_CONTRACT="0x69C6e1D608ec64885E7b185d39b04B491a71768C"
 BIG_SWARM_CONTRACT="0x6947c6E196a48B77eFa9331EC1E3e45f3Ee5Fd58"
 
 # Will ignore any visible GPUs if set.
-CPU_ONLY=true
+CPU_ONLY=${CPU_ONLY:-""}
 
 
 check_cuda_installation() {
@@ -69,9 +69,8 @@ check_cuda_installation() {
         echo -e "${YELLOW}${BOLD}[!] CUDA environment is not completely set up${NC}"
         
         # Ask if user wants to install CUDA
-        echo -e "${CYAN}${BOLD}Would you like to install CUDA and NVCC? [Y/n] n${NC}"
-        sleep 2
-        install_choice="n"
+        read -p "Would you like to install CUDA and NVCC? [Y/n] " install_choice
+        install_choice=${install_choice:-Y}
         
         if [[ $install_choice =~ ^[Yy]$ ]]; then
             echo -e "${CYAN}${BOLD}[✓] Downloading and running CUDA installation script from GitHub...${NC}"
@@ -132,16 +131,34 @@ check_cuda_installation() {
 
 check_cuda_installation
 
-# Tự động chọn A cho swarm và 0.5 cho số parameters
-USE_BIG_SWARM=false  # Tương đương với chọn "A" cho Math
-SWARM_CONTRACT="$SMALL_SWARM_CONTRACT"  # Đặt contract tương ứng
+while true; do
+    # Prompt the user
+    echo -e "\033[36m\033[1mPlease select a swarm to join:\n[A] Math\n[B] Math Hard\033[0m"
+    read -p "> " ab
+    ab=${ab:-A}  # Default to "A" if Enter is pressed
 
-PARAM_B=0.5  # Tự động chọn 0.5 cho số parameters
+    case $ab in
+        [Aa]*)  USE_BIG_SWARM=false; break ;;
+        [Bb]*)  USE_BIG_SWARM=true; break ;;
+        *)      echo ">>> Please answer A or B." ;;
+    esac
+done
 
-# Xác nhận lựa chọn
-echo -e "\033[36m\033[1mSelected swarm: Math (A)\033[0m"
-echo -e "\033[36m\033[1mSelected parameter size: $PARAM_B billions\033[0m"
+if [ "$USE_BIG_SWARM" = true ]; then
+    SWARM_CONTRACT="$BIG_SWARM_CONTRACT"
+else
+    SWARM_CONTRACT="$SMALL_SWARM_CONTRACT"
+fi
+while true; do
+    echo -e "\n\033[36m\033[1mHow many parameters (in billions)? [0.5, 1.5, 7, 32, 72]\033[0m"
+    read -p "> " pc
+    pc=${pc:-0.5}  # Default to "0.5" if the user presses Enter
 
+    case $pc in
+        0.5 | 1.5 | 7 | 32 | 72) PARAM_B=$pc; break ;;
+        *) echo ">>> Please answer in [0.5, 1.5, 7, 32, 72]." ;;
+    esac
+done
 
 cleanup() {
     echo -e "${YELLOW}${BOLD}[✓] Shutting down processes...${NC}"
@@ -319,6 +336,27 @@ else
         fi
     }
 
+    install_cloudflared() {
+        if command -v cloudflared >/dev/null 2>&1; then
+            echo -e "${GREEN}${BOLD}[✓] Cloudflared is already installed.${NC}"
+            return 0
+        fi
+        echo -e "\n${YELLOW}${BOLD}[✓] Installing cloudflared...${NC}"
+        CF_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$CF_ARCH"
+        wget -q --show-progress "$CF_URL" -O cloudflared
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}${BOLD}[✗] Failed to download cloudflared.${NC}"
+            return 1
+        fi
+        chmod +x cloudflared
+        sudo mv cloudflared /usr/local/bin/
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}${BOLD}[✗] Failed to move cloudflared to /usr/local/bin/.${NC}"
+            return 1
+        fi
+        echo -e "${GREEN}${BOLD}[✓] Cloudflared installed successfully.${NC}"
+        return 0
+    }
 
     install_ngrok() {
         if command -v ngrok >/dev/null 2>&1; then
@@ -373,6 +411,42 @@ else
         return 1
     }
 
+    try_cloudflared() {
+        echo -e "\n${CYAN}${BOLD}[✓] Trying cloudflared...${NC}"
+        if install_cloudflared; then
+            echo -e "\n${CYAN}${BOLD}[✓] Starting cloudflared tunnel...${NC}"
+            TUNNEL_TYPE="cloudflared"
+            cloudflared tunnel --url http://localhost:$PORT > cloudflared_output.log 2>&1 &
+            TUNNEL_PID=$!
+            
+            counter=0
+            MAX_WAIT=10
+            while [ $counter -lt $MAX_WAIT ]; do
+                CLOUDFLARED_URL=$(grep -o 'https://[^ ]*\.trycloudflare.com' cloudflared_output.log | head -n1)
+                if [ -n "$CLOUDFLARED_URL" ]; then
+                    echo -e "${GREEN}${BOLD}[✓] Cloudflared tunnel is started successfully.${NC}"
+                    echo -e "\n${CYAN}${BOLD}[✓] Checking if cloudflared URL is working...${NC}"
+                    if check_url "$CLOUDFLARED_URL"; then
+                        FORWARDING_URL="$CLOUDFLARED_URL"
+                        return 0
+                    else
+                        echo -e "${RED}${BOLD}[✗] Cloudflared URL is not accessible.${NC}"
+                        kill $TUNNEL_PID 2>/dev/null || true
+                        break
+                    fi
+                fi
+                sleep 1
+                counter=$((counter + 1))
+            done
+            kill $TUNNEL_PID 2>/dev/null || true
+        fi
+        return 1
+    }
+
+    get_ngrok_url_method1() {
+        local url=$(grep -o '"url":"https://[^"]*' ngrok_output.log 2>/dev/null | head -n1 | cut -d'"' -f4)
+        echo "$url"
+    }
 
     get_ngrok_url_method2() {
         local try_port
@@ -411,21 +485,8 @@ else
                     echo -e "${RED}${BOLD}[✗] No token provided. Please enter a valid token.${NC}"
                     continue
                 fi
-                echo -e "\n${CYAN}[↻] Authenticating with ngrok...${NC}"
-                ngrok authtoken "$NGROK_TOKEN" > ngrok_auth.log 2>&1
-                if [ $? -eq 0 ]; then
-                    echo -e "${GREEN}${BOLD}[✓] Successfully authenticated ngrok!${NC}"
-                    break
-                else
-                    echo -e "${RED}[✗] Authentication failed. See ngrok_auth.log for details.${NC}"
-                    cat ngrok_auth.log | tail -n 5
-                fi
-            done
-
-            return 0
-        fi
-        return 1
-    }
+                pkill -f ngrok || true
+                sleep 2
             
                 ngrok authtoken "$NGROK_TOKEN" 2>/dev/null
                 if [ $? -eq 0 ]; then
@@ -595,14 +656,14 @@ fi
 if [ -n "${HF_TOKEN}" ]; then
     HUGGINGFACE_ACCESS_TOKEN=${HF_TOKEN}
 else
-    yn="n"  # Tự động chọn "n" (không đẩy lên Hugging Face)
+    read -p "Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] " yn
+    yn=${yn:-N}
     case $yn in
         [Yy]* ) read -p "Enter your Hugging Face access token: " HUGGINGFACE_ACCESS_TOKEN;;
         [Nn]* ) HUGGINGFACE_ACCESS_TOKEN="None";;
         * ) echo -e "${YELLOW}>>> No answer was given, so NO models will be pushed to the Hugging Face Hub.${NC}" && HUGGINGFACE_ACCESS_TOKEN="None";;
     esac
 fi
-
 
 echo -e "\n${GREEN}${BOLD}[✓] Good luck in the swarm! Your training session is about to begin.\n${NC}"
 [ "$(uname)" = "Darwin" ] && sed -i '' -E 's/(startup_timeout: *float *= *)[0-9.]+/\1120/' $(python3 -c "import hivemind.p2p.p2p_daemon as m; print(m.__file__)") || sed -i -E 's/(startup_timeout: *float *= *)[0-9.]+/\1120/' $(python3 -c "import hivemind.p2p.p2p_daemon as m; print(m.__file__)")
