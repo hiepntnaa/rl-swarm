@@ -306,10 +306,13 @@ else
         echo "$url"
     }
 
-    try_ngrok() {
-        echo -e "\n${CYAN}${BOLD}[✓] Trying ngrok...${NC}"
-        if install_ngrok; then
-            TUNNEL_TYPE="ngrok"
+try_ngrok() {
+    echo -e "\n${CYAN}${BOLD}[✓] Trying ngrok...${NC}"
+    if install_ngrok; then
+        TUNNEL_TYPE="ngrok"
+        
+        # Kiểm tra nếu ngrok đã được xác thực trước
+        if [ -z "$NGROK_TOKEN" ]; then
             while true; do
                 echo -e "\n${YELLOW}${BOLD}To get your authtoken:${NC}"
                 echo "1. Sign up or log in at https://dashboard.ngrok.com"
@@ -323,9 +326,10 @@ else
                     echo -e "${RED}${BOLD}[✗] No token provided. Please enter a valid token.${NC}"
                     continue
                 fi
+                
                 pkill -f ngrok || true
                 sleep 2
-            
+
                 ngrok authtoken "$NGROK_TOKEN" 2>/dev/null
                 if [ $? -eq 0 ]; then
                     echo -e "${GREEN}${BOLD}[✓] Successfully authenticated ngrok!${NC}"
@@ -334,51 +338,28 @@ else
                     echo -e "${RED}[✗] Authentication failed. Please check your token and try again.${NC}"
                 fi
             done
-
-            echo -e "\n${CYAN}${BOLD}[✓] Starting ngrok with method 1...${NC}"
-            ngrok http "$PORT" --log=stdout --log-format=json > ngrok_output.log 2>&1 &
-            TUNNEL_PID=$!
-            sleep 5
-            
-            NGROK_URL=$(get_ngrok_url_method1)
-            if [ -n "$NGROK_URL" ]; then
-                FORWARDING_URL="$NGROK_URL"
-                return 0
-            else
-                echo -e "${RED}${BOLD}[✗] Failed to get ngrok URL (method 1).${NC}"
-                kill $TUNNEL_PID 2>/dev/null || true
-            fi
-
-            echo -e "\n${CYAN}${BOLD}[✓] Starting ngrok with method 2...${NC}"
-            ngrok http "$PORT" > ngrok_output.log 2>&1 &
-            TUNNEL_PID=$!
-            sleep 5
-            
-            NGROK_URL=$(get_ngrok_url_method2)
-            if [ -n "$NGROK_URL" ]; then
-                FORWARDING_URL="$NGROK_URL"
-                return 0
-            else
-                echo -e "${RED}${BOLD}[✗] Failed to get ngrok URL (method 2).${NC}"
-                kill $TUNNEL_PID 2>/dev/null || true
-            fi
-
-            echo -e "\n${CYAN}${BOLD}[✓] Starting ngrok with method 3...${NC}"
-            ngrok http "$PORT" --log=stdout > ngrok_output.log 2>&1 &
-            TUNNEL_PID=$!
-            sleep 5
-            
-            NGROK_URL=$(get_ngrok_url_method3)
-            if [ -n "$NGROK_URL" ]; then
-                FORWARDING_URL="$NGROK_URL"
-                return 0
-            else
-                echo -e "${RED}${BOLD}[✗] Failed to get ngrok URL (method 3).${NC}"
-                kill $TUNNEL_PID 2>/dev/null || true
-            fi
         fi
-        return 1
-    }
+        
+        # Tiến hành khởi động ngrok với các phương pháp
+        echo -e "\n${CYAN}${BOLD}[✓] Starting ngrok...${NC}"
+        ngrok http "$PORT" --log=stdout --log-format=json > ngrok_output.log 2>&1 &
+        TUNNEL_PID=$!
+        sleep 5
+
+        NGROK_URL=$(get_ngrok_url_method1)
+        if [ -n "$NGROK_URL" ]; then
+            FORWARDING_URL="$NGROK_URL"
+            return 0
+        else
+            echo -e "${RED}${BOLD}[✗] Failed to get ngrok URL (method 1).${NC}"
+            kill $TUNNEL_PID 2>/dev/null || true
+        fi
+        
+        # Tiếp tục với các phương pháp khác nếu cần...
+    fi
+    return 1
+}
+
 
     start_tunnel() {
         if try_ngrok; then
