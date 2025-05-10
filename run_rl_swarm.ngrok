@@ -38,12 +38,12 @@ BIG_SWARM_CONTRACT="0x6947c6E196a48B77eFa9331EC1E3e45f3Ee5Fd58"
 ab="A"
 echo -e "\033[36m\033[1mPlease select a swarm to join:\n[A] Math\n[B] Math Hard\033[0m"
 case $ab in
-    [Aa]*)  USE_BIG_SWARM=false; break ;;
-    [Bb]*)  USE_BIG_SWARM=true; break ;;
+    [Aa]*)  USE_BIG_SWARM=false ;;  # Loại bỏ `break` ở đây
+    [Bb]*)  USE_BIG_SWARM=true ;;   # Loại bỏ `break` ở đây
     *)      echo ">>> Please answer A or B." ;;
 esac
 
-
+# Gán giá trị cho SWARM_CONTRACT tùy vào lựa chọn
 if [ "$USE_BIG_SWARM" = true ]; then
     SWARM_CONTRACT="$BIG_SWARM_CONTRACT"
 else
@@ -53,7 +53,7 @@ fi
 pc="0.5"
 echo -e "\n\033[36m\033[1mHow many parameters (in billions)? [0.5, 1.5, 7, 32, 72]\033[0m"
 case $pc in
-    0.5 | 1.5 | 7 | 32 | 72) PARAM_B=$pc; break ;;
+    0.5 | 1.5 | 7 | 32 | 72) PARAM_B=$pc ;;  # Loại bỏ `break` ở đây
     *) echo ">>> Please answer in [0.5, 1.5, 7, 32, 72]." ;;
 esac
 
