@@ -469,9 +469,11 @@ fi
 if [ -n "${HF_TOKEN}" ]; then
     HUGGINGFACE_ACCESS_TOKEN=${HF_TOKEN}
 else
-    read -p "Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] " yn
+    echo ">> Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] N"
     sleep 2
     yn="N"
+    echo -en $RESET_TEXT
+
     case $yn in
         [Yy]* ) read -p "Enter your Hugging Face access token: " HUGGINGFACE_ACCESS_TOKEN;;
         [Nn]* ) HUGGINGFACE_ACCESS_TOKEN="None";;
