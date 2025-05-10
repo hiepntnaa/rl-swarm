@@ -34,108 +34,14 @@ IDENTITY_PATH=${IDENTITY_PATH:-$DEFAULT_IDENTITY_PATH}
 SMALL_SWARM_CONTRACT="0x69C6e1D608ec64885E7b185d39b04B491a71768C"
 BIG_SWARM_CONTRACT="0x6947c6E196a48B77eFa9331EC1E3e45f3Ee5Fd58"
 
-# Will ignore any visible GPUs if set.
-CPU_ONLY=${CPU_ONLY:-""}
 
-
-check_cuda_installation() {
-    echo -e "\n${CYAN}${BOLD}[✓] Checking CUDA and NVCC installation...${NC}"
-    
-    CUDA_AVAILABLE=false
-    NVCC_AVAILABLE=false
-    
-    # Check if nvidia-smi is available
-    if command -v nvidia-smi &> /dev/null; then
-        echo -e "${GREEN}${BOLD}[✓] CUDA drivers detected (nvidia-smi found)${NC}"
-        CUDA_AVAILABLE=true
-    elif [ -d "/proc/driver/nvidia" ]; then
-        echo -e "${GREEN}${BOLD}[✓] CUDA drivers detected (NVIDIA driver directory found)${NC}"
-        CUDA_AVAILABLE=true
-    else
-        echo -e "${YELLOW}${BOLD}[!] CUDA drivers not detected${NC}"
-    fi
-    
-    # Check if nvcc is available
-    if command -v nvcc &> /dev/null; then
-        NVCC_VERSION=$(nvcc --version | grep "release" | awk '{print $5}' | cut -d',' -f1)
-        echo -e "${GREEN}${BOLD}[✓] NVCC compiler detected (version $NVCC_VERSION)${NC}"
-        NVCC_AVAILABLE=true
-    else
-        echo -e "${YELLOW}${BOLD}[!] NVCC compiler not detected${NC}"
-    fi
-    
-    # If either CUDA or NVCC is missing, offer to install
-    if [ "$CUDA_AVAILABLE" = false ] || [ "$NVCC_AVAILABLE" = false ]; then
-        echo -e "${YELLOW}${BOLD}[!] CUDA environment is not completely set up${NC}"
-        
-        # Ask if user wants to install CUDA
-        read -p "Would you like to install CUDA and NVCC? [Y/n] " install_choice
-        install_choice=${install_choice:-Y}
-        
-        if [[ $install_choice =~ ^[Yy]$ ]]; then
-            echo -e "${CYAN}${BOLD}[✓] Downloading and running CUDA installation script from GitHub...${NC}"
-            
-            # Execute the CUDA installation script directly from GitHub
-            bash <(curl -sSL https://raw.githubusercontent.com/zunxbt/gensyn-testnet/main/cuda.sh)
-            
-            # Check if installation was successful
-            if [ $? -eq 0 ]; then
-                echo -e "${GREEN}${BOLD}[✓] CUDA installation script completed successfully${NC}"
-                
-                # Source the profile and bashrc to update environment variables
-                source ~/.profile 2>/dev/null || true
-                source ~/.bashrc 2>/dev/null || true
-                
-                # Reload environment variables for CUDA paths
-                if [ -f "/etc/profile.d/cuda.sh" ]; then
-                    source /etc/profile.d/cuda.sh
-                fi
-                
-                # Add CUDA paths to current shell session if not already added
-                if [ -d "/usr/local/cuda/bin" ] && [[ ":$PATH:" != *":/usr/local/cuda/bin:"* ]]; then
-                    export PATH="/usr/local/cuda/bin:$PATH"
-                fi
-                
-                if [ -d "/usr/local/cuda/lib64" ] && [[ ":$LD_LIBRARY_PATH:" != *":/usr/local/cuda/lib64:"* ]]; then
-                    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
-                fi
-                
-                # Verify installation after running the script
-                if command -v nvcc &> /dev/null; then
-                    NVCC_VERSION=$(nvcc --version | grep "release" | awk '{print $5}' | cut -d',' -f1)
-                    echo -e "${GREEN}${BOLD}[✓] NVCC successfully installed (version $NVCC_VERSION)${NC}"
-                    NVCC_AVAILABLE=true
-                else
-                    echo -e "${YELLOW}${BOLD}[!] NVCC installation may require a system restart${NC}"
-                    echo -e "${YELLOW}${BOLD}[!] If you continue to have issues after this script completes, please restart your system${NC}"
-                fi
-                
-                # Display current CUDA version information
-                if command -v nvidia-smi &> /dev/null; then
-                    echo -e "${CYAN}${BOLD}[✓] Current NVIDIA driver information:${NC}"
-                    nvidia-smi --query-gpu=driver_version,name,temperature.gpu,utilization.gpu,utilization.memory --format=csv,noheader
-                fi
-            else
-                echo -e "${RED}${BOLD}[✗] CUDA installation failed${NC}"
-                echo -e "${YELLOW}${BOLD}[!] Please try installing CUDA manually by following NVIDIA's installation guide${NC}"
-            fi
-        else
-            echo -e "${YELLOW}${BOLD}[!] Proceeding without CUDA installation${NC}"
-            echo -e "${YELLOW}${BOLD}[!] Note: GPU acceleration will not be available${NC}"
-            CPU_ONLY="true"
-        fi
-    fi
-    
-    return 0
-}
-
-check_cuda_installation
 
 while true; do
     # Prompt the user
     echo -e "\033[36m\033[1mPlease select a swarm to join:\n[A] Math\n[B] Math Hard\033[0m"
     read -p "> " ab
-    ab=${ab:-A}  # Default to "A" if Enter is pressed
+    sleep 2
+    ab="A"  # Default to "A" if Enter is pressed
 
     case $ab in
         [Aa]*)  USE_BIG_SWARM=false; break ;;
@@ -152,7 +58,8 @@ fi
 while true; do
     echo -e "\n\033[36m\033[1mHow many parameters (in billions)? [0.5, 1.5, 7, 32, 72]\033[0m"
     read -p "> " pc
-    pc=${pc:-0.5}  # Default to "0.5" if the user presses Enter
+    sleep 2
+    pc="0.5"  # Default to "0.5" if the user presses Enter
 
     case $pc in
         0.5 | 1.5 | 7 | 32 | 72) PARAM_B=$pc; break ;;
@@ -167,12 +74,6 @@ cleanup() {
     kill $TUNNEL_PID 2>/dev/null || true
     exit 0
 }
-
-trap cleanup INT
-
-if ls "$HOME/rl-swarm/modal-login/temp-data/"*.json 1> /dev/null 2>&1; then
-  rm -r $HOME/rl-swarm/modal-login/temp-data/*.json 2> /dev/null || true
-fi
 
 sleep 2
 
@@ -336,28 +237,6 @@ else
         fi
     }
 
-    install_cloudflared() {
-        if command -v cloudflared >/dev/null 2>&1; then
-            echo -e "${GREEN}${BOLD}[✓] Cloudflared is already installed.${NC}"
-            return 0
-        fi
-        echo -e "\n${YELLOW}${BOLD}[✓] Installing cloudflared...${NC}"
-        CF_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$CF_ARCH"
-        wget -q --show-progress "$CF_URL" -O cloudflared
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}${BOLD}[✗] Failed to download cloudflared.${NC}"
-            return 1
-        fi
-        chmod +x cloudflared
-        sudo mv cloudflared /usr/local/bin/
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}${BOLD}[✗] Failed to move cloudflared to /usr/local/bin/.${NC}"
-            return 1
-        fi
-        echo -e "${GREEN}${BOLD}[✓] Cloudflared installed successfully.${NC}"
-        return 0
-    }
-
     install_ngrok() {
         if command -v ngrok >/dev/null 2>&1; then
             echo -e "${GREEN}${BOLD}[✓] ngrok is already installed.${NC}"
@@ -407,38 +286,6 @@ else
                 echo -e "${RED}${BOLD}[✗] Failed to get localtunnel URL.${NC}"
                 kill $TUNNEL_PID 2>/dev/null || true
             fi
-        fi
-        return 1
-    }
-
-    try_cloudflared() {
-        echo -e "\n${CYAN}${BOLD}[✓] Trying cloudflared...${NC}"
-        if install_cloudflared; then
-            echo -e "\n${CYAN}${BOLD}[✓] Starting cloudflared tunnel...${NC}"
-            TUNNEL_TYPE="cloudflared"
-            cloudflared tunnel --url http://localhost:$PORT > cloudflared_output.log 2>&1 &
-            TUNNEL_PID=$!
-            
-            counter=0
-            MAX_WAIT=10
-            while [ $counter -lt $MAX_WAIT ]; do
-                CLOUDFLARED_URL=$(grep -o 'https://[^ ]*\.trycloudflare.com' cloudflared_output.log | head -n1)
-                if [ -n "$CLOUDFLARED_URL" ]; then
-                    echo -e "${GREEN}${BOLD}[✓] Cloudflared tunnel is started successfully.${NC}"
-                    echo -e "\n${CYAN}${BOLD}[✓] Checking if cloudflared URL is working...${NC}"
-                    if check_url "$CLOUDFLARED_URL"; then
-                        FORWARDING_URL="$CLOUDFLARED_URL"
-                        return 0
-                    else
-                        echo -e "${RED}${BOLD}[✗] Cloudflared URL is not accessible.${NC}"
-                        kill $TUNNEL_PID 2>/dev/null || true
-                        break
-                    fi
-                fi
-                sleep 1
-                counter=$((counter + 1))
-            done
-            kill $TUNNEL_PID 2>/dev/null || true
         fi
         return 1
     }
@@ -551,9 +398,6 @@ else
             return 0
         fi
         
-        if try_cloudflared; then
-            return 0
-        fi
         return 1
     }
 
@@ -657,7 +501,8 @@ if [ -n "${HF_TOKEN}" ]; then
     HUGGINGFACE_ACCESS_TOKEN=${HF_TOKEN}
 else
     read -p "Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] " yn
-    yn=${yn:-N}
+    sleep 2
+    yn="N"
     case $yn in
         [Yy]* ) read -p "Enter your Hugging Face access token: " HUGGINGFACE_ACCESS_TOKEN;;
         [Nn]* ) HUGGINGFACE_ACCESS_TOKEN="None";;
@@ -670,7 +515,7 @@ echo -e "\n${GREEN}${BOLD}[✓] Good luck in the swarm! Your training session is
 sleep 2
 
 if [ -n "$ORG_ID" ]; then
-    python -m hivemind_exp.gsm8k.train_single_gpu \
+    python3 -m hivemind_exp.gsm8k.train_single_gpu \
         --hf_token "$HUGGINGFACE_ACCESS_TOKEN" \
         --identity_path "$IDENTITY_PATH" \
         --modal_org_id "$ORG_ID" \
@@ -678,7 +523,7 @@ if [ -n "$ORG_ID" ]; then
         --config "$CONFIG_PATH" \
         --game "$GAME"
 else
-    python -m hivemind_exp.gsm8k.train_single_gpu \
+    python3 -m hivemind_exp.gsm8k.train_single_gpu \
         --hf_token "$HUGGINGFACE_ACCESS_TOKEN" \
         --identity_path "$IDENTITY_PATH" \
         --public_maddr "$PUB_MULTI_ADDRS" \
