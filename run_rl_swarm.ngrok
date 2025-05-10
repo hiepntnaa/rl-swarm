@@ -35,26 +35,130 @@ SMALL_SWARM_CONTRACT="0x69C6e1D608ec64885E7b185d39b04B491a71768C"
 BIG_SWARM_CONTRACT="0x6947c6E196a48B77eFa9331EC1E3e45f3Ee5Fd58"
 
 # Will ignore any visible GPUs if set.
-CPU_ONLY=true
+CPU_ONLY=${CPU_ONLY:-""}
+
 
 check_cuda_installation() {
-    echo -e "\n${CYAN}${BOLD}[✓] CUDA not required – running in CPU-only mode${NC}"
-    echo -e "${YELLOW}${BOLD}[!] GPU acceleration is disabled; computations will use CPU only${NC}"
+    echo -e "\n${CYAN}${BOLD}[✓] Checking CUDA and NVCC installation...${NC}"
+    
+    CUDA_AVAILABLE=false
+    NVCC_AVAILABLE=false
+    
+    # Check if nvidia-smi is available
+    if command -v nvidia-smi &> /dev/null; then
+        echo -e "${GREEN}${BOLD}[✓] CUDA drivers detected (nvidia-smi found)${NC}"
+        CUDA_AVAILABLE=true
+    elif [ -d "/proc/driver/nvidia" ]; then
+        echo -e "${GREEN}${BOLD}[✓] CUDA drivers detected (NVIDIA driver directory found)${NC}"
+        CUDA_AVAILABLE=true
+    else
+        echo -e "${YELLOW}${BOLD}[!] CUDA drivers not detected${NC}"
+    fi
+    
+    # Check if nvcc is available
+    if command -v nvcc &> /dev/null; then
+        NVCC_VERSION=$(nvcc --version | grep "release" | awk '{print $5}' | cut -d',' -f1)
+        echo -e "${GREEN}${BOLD}[✓] NVCC compiler detected (version $NVCC_VERSION)${NC}"
+        NVCC_AVAILABLE=true
+    else
+        echo -e "${YELLOW}${BOLD}[!] NVCC compiler not detected${NC}"
+    fi
+    
+    # If either CUDA or NVCC is missing, offer to install
+    if [ "$CUDA_AVAILABLE" = false ] || [ "$NVCC_AVAILABLE" = false ]; then
+        echo -e "${YELLOW}${BOLD}[!] CUDA environment is not completely set up${NC}"
+        
+        # Ask if user wants to install CUDA
+        read -p "Would you like to install CUDA and NVCC? [Y/n] " install_choice
+        install_choice=${install_choice:-Y}
+        
+        if [[ $install_choice =~ ^[Yy]$ ]]; then
+            echo -e "${CYAN}${BOLD}[✓] Downloading and running CUDA installation script from GitHub...${NC}"
+            
+            # Execute the CUDA installation script directly from GitHub
+            bash <(curl -sSL https://raw.githubusercontent.com/zunxbt/gensyn-testnet/main/cuda.sh)
+            
+            # Check if installation was successful
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}${BOLD}[✓] CUDA installation script completed successfully${NC}"
+                
+                # Source the profile and bashrc to update environment variables
+                source ~/.profile 2>/dev/null || true
+                source ~/.bashrc 2>/dev/null || true
+                
+                # Reload environment variables for CUDA paths
+                if [ -f "/etc/profile.d/cuda.sh" ]; then
+                    source /etc/profile.d/cuda.sh
+                fi
+                
+                # Add CUDA paths to current shell session if not already added
+                if [ -d "/usr/local/cuda/bin" ] && [[ ":$PATH:" != *":/usr/local/cuda/bin:"* ]]; then
+                    export PATH="/usr/local/cuda/bin:$PATH"
+                fi
+                
+                if [ -d "/usr/local/cuda/lib64" ] && [[ ":$LD_LIBRARY_PATH:" != *":/usr/local/cuda/lib64:"* ]]; then
+                    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+                fi
+                
+                # Verify installation after running the script
+                if command -v nvcc &> /dev/null; then
+                    NVCC_VERSION=$(nvcc --version | grep "release" | awk '{print $5}' | cut -d',' -f1)
+                    echo -e "${GREEN}${BOLD}[✓] NVCC successfully installed (version $NVCC_VERSION)${NC}"
+                    NVCC_AVAILABLE=true
+                else
+                    echo -e "${YELLOW}${BOLD}[!] NVCC installation may require a system restart${NC}"
+                    echo -e "${YELLOW}${BOLD}[!] If you continue to have issues after this script completes, please restart your system${NC}"
+                fi
+                
+                # Display current CUDA version information
+                if command -v nvidia-smi &> /dev/null; then
+                    echo -e "${CYAN}${BOLD}[✓] Current NVIDIA driver information:${NC}"
+                    nvidia-smi --query-gpu=driver_version,name,temperature.gpu,utilization.gpu,utilization.memory --format=csv,noheader
+                fi
+            else
+                echo -e "${RED}${BOLD}[✗] CUDA installation failed${NC}"
+                echo -e "${YELLOW}${BOLD}[!] Please try installing CUDA manually by following NVIDIA's installation guide${NC}"
+            fi
+        else
+            echo -e "${YELLOW}${BOLD}[!] Proceeding without CUDA installation${NC}"
+            echo -e "${YELLOW}${BOLD}[!] Note: GPU acceleration will not be available${NC}"
+            CPU_ONLY="true"
+        fi
+    fi
     
     return 0
 }
 
 check_cuda_installation
 
-# Automatically select swarm
-USE_BIG_SWARM=false
-SWARM_CONTRACT="$SMALL_SWARM_CONTRACT"
-echo -e "\033[36m\033[1m[Auto] Selected swarm: Math (A)\033[0m"
+while true; do
+    # Prompt the user
+    echo -e "\033[36m\033[1mPlease select a swarm to join:\n[A] Math\n[B] Math Hard\033[0m"
+    read -p "> " ab
+    ab=${ab:-A}  # Default to "A" if Enter is pressed
 
-# Automatically select number of parameters
-PARAM_B=0.5
-echo -e "\033[36m\033[1m[Auto] Selected parameter size: ${PARAM_B}B\033[0m"
+    case $ab in
+        [Aa]*)  USE_BIG_SWARM=false; break ;;
+        [Bb]*)  USE_BIG_SWARM=true; break ;;
+        *)      echo ">>> Please answer A or B." ;;
+    esac
+done
 
+if [ "$USE_BIG_SWARM" = true ]; then
+    SWARM_CONTRACT="$BIG_SWARM_CONTRACT"
+else
+    SWARM_CONTRACT="$SMALL_SWARM_CONTRACT"
+fi
+while true; do
+    echo -e "\n\033[36m\033[1mHow many parameters (in billions)? [0.5, 1.5, 7, 32, 72]\033[0m"
+    read -p "> " pc
+    pc=${pc:-0.5}  # Default to "0.5" if the user presses Enter
+
+    case $pc in
+        0.5 | 1.5 | 7 | 32 | 72) PARAM_B=$pc; break ;;
+        *) echo ">>> Please answer in [0.5, 1.5, 7, 32, 72]." ;;
+    esac
+done
 
 cleanup() {
     echo -e "${YELLOW}${BOLD}[✓] Shutting down processes...${NC}"
@@ -64,10 +168,14 @@ cleanup() {
     exit 0
 }
 
-# Đảm bảo chỉ xóa khi Ctrl+C, không kiểm tra khi bắt đầu
 trap cleanup INT
 
-# Xử lý phần còn lại của script như cài đặt và khởi động server
+if ls "$HOME/rl-swarm/modal-login/temp-data/"*.json 1> /dev/null 2>&1; then
+  rm -r $HOME/rl-swarm/modal-login/temp-data/*.json 2> /dev/null || true
+fi
+
+sleep 2
+
 if [ -f "modal-login/temp-data/userData.json" ]; then
     cd modal-login
 
@@ -102,8 +210,6 @@ if [ -f "modal-login/temp-data/userData.json" ]; then
     npm run dev > server.log 2>&1 &
     SERVER_PID=$!
     MAX_WAIT=30  
-    # Đoạn còn lại của script xử lý bắt đầu server...
-fi
     
     for ((i = 0; i < MAX_WAIT; i++)); do
         if grep -q "Local:        http://localhost:" server.log; then
@@ -229,7 +335,6 @@ else
             return 1
         fi
     }
-
 
     install_ngrok() {
         if command -v ngrok >/dev/null 2>&1; then
@@ -498,8 +603,8 @@ fi
 if [ -n "${HF_TOKEN}" ]; then
     HUGGINGFACE_ACCESS_TOKEN=${HF_TOKEN}
 else
-    yn="n"  # Tự động chọn "n"
-    echo -e "${CYAN}[Auto] Answered 'n' to pushing models to Hugging Face Hub${NC}"
+    read -p "Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] " yn
+    yn=${yn:-N}
     case $yn in
         [Yy]* ) read -p "Enter your Hugging Face access token: " HUGGINGFACE_ACCESS_TOKEN;;
         [Nn]* ) HUGGINGFACE_ACCESS_TOKEN="None";;
