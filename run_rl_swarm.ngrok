@@ -326,9 +326,6 @@ try_ngrok() {
                     continue
                 fi
 
-                pkill -f ngrok || true
-                sleep 2
-
                 ngrok authtoken "$NGROK_TOKEN" 2>/dev/null
                 if [ $? -eq 0 ]; then
                     echo -e "${GREEN}${BOLD}[✓] Successfully authenticated ngrok!${NC}"
