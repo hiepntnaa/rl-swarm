@@ -419,11 +419,6 @@ try_ngrok() {
     fi
 fi
 
-if [ -n "$VIRTUAL_ENV" ]; then
-    echo -e "\n${CYAN}${BOLD}[✓] Deactivating existing virtual environment...${NC}"
-    deactivate
-fi
-
 echo -e "${CYAN}${BOLD}[✓] Setting up Python virtual environment...${NC}"
 python3 -m venv .venv && source .venv/bin/activate && \
 echo -e "${GREEN}${BOLD}[✓] Python virtual environment set up successfully.${NC}" || \
