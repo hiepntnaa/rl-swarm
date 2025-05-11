@@ -24,21 +24,21 @@ def count_xml(text) -> float:
         return 0.0
     count = 0.0
     if text.count("<think>\n") == 1:
-        count += 150
+        count += 60
     if text.count("\n</think>\n") == 1:
-        count += 150
+        count += 60
     if text.count("\n<answer>\n") == 1:
-        count += 150
+        count += 60
         count -= len(text.split("\n</answer>\n")[-1]) * 0.001
     if text.count("\n</answer>") == 1:
-        count += 150
+        count += 60
         count -= (len(text.split("\n</answer>")[-1]) - 1) * 0.001
     return count
 
 
 # Reward functions
 def correctness_reward_func(
-    prompts, completions, answer, weighting=40.0, logging=False, **kwargs
+    prompts, completions, answer, weighting=60.0, logging=False, **kwargs
 ) -> list[float]:
     # Validate inputs
     if completions is None or not completions or not isinstance(completions, list):
@@ -72,7 +72,7 @@ def correctness_reward_func(
     ]
 
 
-def int_reward_func(completions, weighting=150.0, **kwargs) -> list[float]:
+def int_reward_func(completions, weighting=60.0, **kwargs) -> list[float]:
     responses = [completion[0]["content"] for completion in completions]
     extracted_responses = [extract_xml_answer(r) for r in responses]
     return [1.0 * weighting if r.isdigit() else 0.0 for r in extracted_responses]
@@ -95,7 +95,7 @@ def strict_format_reward_func(completions, weighting=2.5, **kwargs) -> list[floa
     return [1.0 * weighting if match else 0.0 for match in matches]
 
 
-def soft_format_reward_func(completions, weighting=150.0, **kwargs) -> list[float]:
+def soft_format_reward_func(completions, weighting=60.0, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
     # Validate inputs
     if completions is None or not completions or not isinstance(completions, list):
@@ -112,7 +112,7 @@ def soft_format_reward_func(completions, weighting=150.0, **kwargs) -> list[floa
     return [1.0 * weighting if match else 0.0 for match in matches]
 
 
-def xmlcount_reward_func(completions, weighting=150.0, **kwargs) -> list[float]:
+def xmlcount_reward_func(completions, weighting=60.0, **kwargs) -> list[float]:
     # Validate inputs
     if completions is None or not completions or not isinstance(completions, list):
         return [0.0]
