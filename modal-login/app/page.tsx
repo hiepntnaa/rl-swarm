@@ -1,4 +1,32 @@
+"use client";  // Đánh dấu là Client Component
+
 import { useEffect, useState } from "react";
+
+// Giả sử useUser, useAuthModal, useSignerStatus, useLogout, useSigner là các hooks tùy chỉnh đã được định nghĩa
+function useUser() {
+  // Giả sử hook lấy thông tin người dùng
+  return { orgId: "some-org-id" }; // Ví dụ, bạn có thể thay đổi theo logic của bạn
+}
+
+function useAuthModal() {
+  // Giả sử hook để mở modal đăng nhập
+  return { openAuthModal: () => console.log("Open auth modal") };
+}
+
+function useSignerStatus() {
+  // Giả sử hook trạng thái signer
+  return { isInitializing: false, isConnected: true };
+}
+
+function useLogout() {
+  // Giả sử hook logout
+  return { logout: () => console.log("Logging out") };
+}
+
+function useSigner() {
+  // Giả sử hook signer
+  return { inner: { stampWhoami: async () => "whoami-stamp", experimental_createApiKey: async () => {} } };
+}
 
 export default function Home() {
   const user = useUser();
@@ -60,7 +88,7 @@ export default function Home() {
   }, [createdApiKey, signer, signerStatus.isConnected, user]);
 
   useEffect(() => {
-    if (typeof window === undefined) {
+    if (typeof window === "undefined") {
       return;
     }
     try {
@@ -69,7 +97,7 @@ export default function Home() {
       }
     } catch (err) {
       alert(
-        "Crypto api is not available in browser. Please be sure that the app is being accessed via localhost or a secure connection.",
+        "Crypto API is not available in browser. Please be sure that the app is being accessed via localhost or a secure connection.",
       );
     }
   }, []);
