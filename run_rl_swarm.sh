@@ -308,6 +308,7 @@ else
 
 try_ngrok() {
     echo -e "\n${CYAN}${BOLD}[✓] Trying ngrok...${NC}"
+    pgrep ngrok && echo "[i] Killing existing ngrok..." && pkill ngrok
     if install_ngrok; then
         TUNNEL_TYPE="ngrok"
         
