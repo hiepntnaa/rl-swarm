@@ -112,7 +112,14 @@ export default function Home() {
             <p className="text-xl font-bold">
               YOU ARE SUCCESSFULLY LOGGED IN TO THE GENSYN TESTNET
             </p>
-            <button className="btn btn-primary mt-6" onClick={() => logout()}>
+            {/* Nút logout được đảm bảo có thể click */}
+            <button
+              className="btn btn-primary mt-6"
+              onClick={() => {
+                logout(); // Thực hiện logout khi nút được nhấn
+                setCreatedApiKey(false); // Đảm bảo API key không được tạo lại khi logout
+              }}
+            >
               Log out
             </button>
           </div>
