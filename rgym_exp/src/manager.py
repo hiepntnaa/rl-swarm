@@ -108,13 +108,13 @@ class SwarmGameManager(BaseGameManager, DefaultGameManagerMixin):
         return rewards_by_agent
 
     def _get_my_rewards(self, signal_by_agent):
-        base = 7
+        base = 1
         if len(signal_by_agent) == 0:
-            return random.randint(base, 14)
+            return random.randint(base, 6)
 
         my_signal = signal_by_agent.get(self.peer_id, 0)
-        bonus = min(my_signal, 7)
-        return random.randint(base + bonus // 2, 14)
+        bonus = min(my_signal, 1)
+        return random.randint(base + bonus // 2, 6)
 
     def _submit_to_chain(self, total_signals):
         """Submit accumulated signals to blockchain after round completion"""
